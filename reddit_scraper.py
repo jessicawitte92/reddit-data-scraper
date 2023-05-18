@@ -25,38 +25,37 @@ url = "https://api.pushshift.io/reddit/search/submission/"
 url = "https://api.pushshift.io/reddit/search/comment/"
 
 #3. define parameters:
-    #n.b. all of these are optional; additional params definted on 
-    #pushshift repo readme
+    #n.b. all of these are optional; additional params defined on the pushshift repo readme
     
 #params for comments:
 subreddit='Scotland'
 keyword='macaroni pie'
-#date is formatted in American (e.g. Year, Month, Date, Hour, Minute)
+#date format is Year, Month, Date, Hour, Minute
 start_date=int(datetime.datetime(2020, 12, 10, 0, 0).timestamp()) 
 size= #integer<=500
 end_date=int(datetime.datetime(2022, 12, 13, 0, 0).timestamp())
 ids=#for finding specific comments by ID
 
 #params for submissions:
-'title'='keyword' #searches the title field only for string
-'selftext'='keyword' #searches submission body only for string
-#also: title:not, q:not, selftext:not to exclude terms
+'title'='keyword' #searches the post title field *only* for matching string(s)
+'selftext'='keyword' #searches submission body *only* 
+#title:not, q:not, selftext:not to exclude terms
 'score'=#find posts with a certain score or range e.g. x > 20
-'num_comments'=#certain number/range of comments only
+'num_comments'=#limit to posts with a specified number/range of comments only
 
 
 params={'subreddit': subreddit, 'q': keyword, 'size': size, 'after': start_date,
         'before': end_date, 'sort': 'desc' #or 'asc', 
         'sort_type': 'created_utc' #or 'num_comments', 'score'}
         
-#4. create locations for data storage:
+#4. create storage variables (AKA pythonic filing cabinets):
+        #DISCLAIMER: no reptiles were confined or otherwise harmed in the creation of this dataset
 
-#optional, for the organised: rename them "submissions" and "submission_ids" 
-#depending on your search
 comments=[]
 comment_ids=set()
-
-#counters for the except loop (in case of failure):
+#optional, for the organised: rename the variables according to your search, e.g. "submissions" and "submission_ids" 
+        
+#set counter/limit for the "except" loop (in case of failure):
 try_count=0
 try_limit=3
 
@@ -87,32 +86,32 @@ while try_count < try_limit:
         params['before'] = data['data'][-1]['created_utc']
         time.sleep(1)
     
-    #in case of error: print error
+    #in case of error
     except requests.exceptions.RequestException as i:
         print ('Suspected API error encountered:', i)
         try_count += 1
         time.sleep(1)
         
-        #and retry up to 3 times
+        #and retry up to 3 times. this is optional, but useful for larger scraping tasks
         if try_count >= try_limit:
             print('The third time was not a charm. Scrape failed; exiting.')
             break
     
     
-#6. dump data into pandas and clean it:
+#6. dump data into pandas dataframe and perform some very perfunctory cleaning (hide the floordrobe in the wardrobe):
 df=pd.read_json(json.dumps(comments))
 
-#remove duplicate data; seeking more pythonic solution but this works
+#remove duplicate data (pushshift creates lots of duplicates--insights here welcome!)
 df=df.drop_duplicates(subset='id')
 df.info()
 
-#subset by columns to keep:
+#subset by columns to keep of the ~80-100 or so from pushshift:
     #n.b. print the column titles to check them first. they change with every scrape!
 df=df[['subreddit', 'selftext', 'title', 'upvote_ratio', 
        'awards_received', 'link_flair_text', 'removed_by_category', 'id', 
        'author', 'url', 'permalink', 'created_utc', 'num_comments']]
 
-#change datetime from unix 
+#change unix time to human time
 df['created_utc']=pd.to_datetime(df['created_utc'], unit='s')
 
 #7. save output
